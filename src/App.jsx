@@ -1,121 +1,122 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useState, useCallback } from 'react'
+import Sidebar from './components/Sidebar'
+import Topbar from './components/Topbar'
+import Dashboard from './pages/Dashboard'
+import Transactions from './pages/Transactions'
+import Insights from './pages/Insights'
+import { SEED_DATA } from './data/mockData'
 
-function App() {
-  const [count, setCount] = useState(0)
+const PAGES = { dashboard: Dashboard, transactions: Transactions, insights: Insights }
+
+export default function App() {
+  // ── Persisted state ────────────────────────────────────
+  const [transactions, setTransactions] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('fintrak_tx')) || SEED_DATA }
+    catch { return SEED_DATA }
+  })
+
+  const [role, setRole] = useState(() => localStorage.getItem('fintrak_role') || 'admin')
+
+  // ── Navigation & UI state ──────────────────────────────
+  const [activePage, setActivePage] = useState('dashboard')
+  const [search, setSearch]         = useState('')
+  const [nextId, setNextId]         = useState(41)
+  const [toast, setToast]           = useState({ visible: false, msg: '' })
+
+  // ── Persist helpers ────────────────────────────────────
+  const persistTx = (txList) => {
+    setTransactions(txList)
+    localStorage.setItem('fintrak_tx', JSON.stringify(txList))
+  }
+
+  const handleRoleChange = (r) => {
+    setRole(r)
+    localStorage.setItem('fintrak_role', r)
+  }
+
+  // ── Toast ──────────────────────────────────────────────
+  const showToast = useCallback((msg) => {
+    setToast({ visible: true, msg })
+    setTimeout(() => setToast(t => ({ ...t, visible: false })), 2800)
+  }, [])
+
+  // ── CRUD ───────────────────────────────────────────────
+  const addTransaction = useCallback((data) => {
+    const newTx = { ...data, id: nextId }
+    setNextId(n => n + 1)
+    persistTx([newTx, ...transactions])
+    showToast('Transaction added!')
+  }, [transactions, nextId, showToast])
+
+  const deleteTransaction = useCallback((id) => {
+    persistTx(transactions.filter(t => t.id !== id))
+    showToast('Transaction deleted')
+  }, [transactions, showToast])
+
+  // ── Export ─────────────────────────────────────────────
+  const exportData = useCallback(() => {
+    const headers = ['ID', 'Description', 'Category', 'Type', 'Amount', 'Date']
+    const rows = transactions.map(t => [t.id, t.desc, t.cat, t.type, t.amount, t.date])
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
+    const a = Object.assign(document.createElement('a'), { href: url, download: 'fintrak-transactions.csv' })
+    a.click()
+    showToast('Exported as CSV!')
+  }, [transactions, showToast])
+
+  // ── Sidebar toggle (mobile) ────────────────────────────
+  const toggleSidebar = () => {
+    document.getElementById('sidebar')?.classList.toggle('open')
+  }
+
+  const ActivePage = PAGES[activePage]
 
   return (
     <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+      {/* Mobile sidebar toggle */}
+      <div id="sidebarToggle" className="sidebar-toggle" onClick={toggleSidebar}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+      </div>
 
-      <div className="ticks"></div>
+      <div className="shell">
+        <Sidebar
+          activePage={activePage}
+          onNavigate={setActivePage}
+          role={role}
+          onRoleChange={handleRoleChange}
+        />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        <main className="main">
+          <Topbar
+            activePage={activePage}
+            search={search}
+            onSearch={setSearch}
+            onExport={exportData}
+          />
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
+          <div className="content">
+            <ActivePage
+              transactions={transactions}
+              role={role}
+              search={search}
+              onNavigate={setActivePage}
+              onAddTransaction={addTransaction}
+              onDeleteTransaction={deleteTransaction}
+              showToast={showToast}
+            />
+          </div>
+        </main>
+      </div>
+
+      {/* Toast notification */}
+      <div className={`toast${toast.visible ? ' show' : ''}`}>
+        <div className="toast-dot" />
+        <span>{toast.msg}</span>
+      </div>
     </>
   )
 }
-
-export default App
