@@ -10,16 +10,17 @@ const CATEGORIES = [
 
 const DEFAULT_FORM = { type: 'expense', amount: '', desc: '', cat: 'Food & Dining', date: '' }
 
-export default function Transactions({ transactions, role, search, onAddTransaction, onDeleteTransaction, showToast }) {
+export default function Transactions({ transactions, role, search, onAddTransaction, onEditTransaction, onDeleteTransaction, showToast }) {
   const [typeFilter, setTypeFilter] = useState('all')
   const [catFilter,  setCatFilter]  = useState('all')
   const [sort,       setSort]       = useState('date-desc')
   const [modalOpen,  setModalOpen]  = useState(false)
   const [form,       setForm]       = useState(DEFAULT_FORM)
+  const [editingId,  setEditingId]  = useState(null)
 
   const isAdmin = role === 'admin'
 
-  // ── Filtered & sorted list ─────────────────────────────
+  // Filtering and sorting logic
   const filtered = useMemo(() => {
     return transactions
       .filter(t => {
@@ -45,17 +46,32 @@ export default function Transactions({ transactions, role, search, onAddTransact
   const totalIn  = filtered.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
   const totalOut = filtered.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
 
-  // ── Modal helpers ──────────────────────────────────────
-  const openModal = () => {
+  // Modal handlers
+  const openAddModal = () => {
     if (!isAdmin) { showToast('Viewers cannot add transactions'); return }
+    setEditingId(null)
     setForm({ ...DEFAULT_FORM, date: new Date().toISOString().slice(0, 10) })
     setModalOpen(true)
   }
+
+  const openEditModal = (t) => {
+    if (!isAdmin) return
+    setEditingId(t.id)
+    setForm({ ...t })
+    setModalOpen(true)
+  }
+
   const closeModal = () => setModalOpen(false)
 
   const handleSubmit = () => {
     if (!form.amount || !form.desc || !form.date) { showToast('Please fill all fields'); return }
-    onAddTransaction({ ...form, amount: parseFloat(form.amount) })
+    const txData = { ...form, amount: parseFloat(form.amount) }
+    
+    if (editingId) {
+      onEditTransaction(txData)
+    } else {
+      onAddTransaction(txData)
+    }
     closeModal()
   }
 
@@ -63,39 +79,27 @@ export default function Transactions({ transactions, role, search, onAddTransact
 
   return (
     <div>
-      {/* Header */}
+      {/* Page Header */}
       <div className="section-header">
         <div>
           <div className="section-title">Transactions</div>
           <div className="section-sub">
-            {filtered.length} transaction{filtered.length !== 1 ? 's' : ''} &nbsp;·&nbsp;
-            {fmt(totalIn)} in / {fmt(totalOut)} out
+            {filtered.length} items &nbsp;·&nbsp;
+            {fmt(totalIn)} income / {fmt(totalOut)} expense
           </div>
         </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <button className="btn-export">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-              <polyline points="7 10 12 15 17 10"/>
-              <line x1="12" y1="15" x2="12" y2="3"/>
-            </svg>
-            Export
-          </button>
-          <button
-            className={`btn-add${!isAdmin ? ' disabled' : ''}`}
-            onClick={openModal}
-          >
+          <button className="btn-add" onClick={openAddModal} disabled={!isAdmin}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
-            Add Transaction
+            Add New
           </button>
         </div>
       </div>
 
-      {/* Table card */}
+      {/* Main Table Card */}
       <div className="card">
-        {/* Filters */}
         <div className="tx-filters">
           {['all', 'income', 'expense'].map(f => (
             <button
@@ -113,14 +117,13 @@ export default function Transactions({ transactions, role, search, onAddTransact
           </select>
 
           <select className="filter-select" value={sort} onChange={e => setSort(e.target.value)}>
-            <option value="date-desc">Newest first</option>
-            <option value="date-asc">Oldest first</option>
-            <option value="amount-desc">Highest amount</option>
-            <option value="amount-asc">Lowest amount</option>
+            <option value="date-desc">Newest</option>
+            <option value="date-asc">Oldest</option>
+            <option value="amount-desc">High Amount</option>
+            <option value="amount-asc">Low Amount</option>
           </select>
         </div>
 
-        {/* Table */}
         {filtered.length ? (
           <table className="tx-table">
             <thead>
@@ -141,9 +144,14 @@ export default function Transactions({ transactions, role, search, onAddTransact
                   <td className={`tx-amount ${t.type}`}>{t.type === 'income' ? '+' : '-'}{fmt(t.amount)}</td>
                   {isAdmin && (
                     <td>
-                      <button className="tx-action-btn" onClick={() => onDeleteTransaction(t.id)}>
-                        Delete
-                      </button>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button className="tx-action-btn" onClick={() => openEditModal(t)}>
+                          Edit
+                        </button>
+                        <button className="tx-action-btn" style={{ color: 'var(--red)' }} onClick={() => onDeleteTransaction(t.id)}>
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   )}
                 </tr>
@@ -154,18 +162,17 @@ export default function Transactions({ transactions, role, search, onAddTransact
           <div className="empty-state">
             <div className="empty-icon">🔍</div>
             <div className="empty-title">No transactions found</div>
-            <div className="empty-sub">Try adjusting your filters</div>
           </div>
         )}
       </div>
 
-      {/* Add Transaction Modal */}
+      {/* Add/Edit Modal */}
       <div
         className={`modal-backdrop${modalOpen ? ' open' : ''}`}
         onClick={e => e.target === e.currentTarget && closeModal()}
       >
         <div className="modal">
-          <div className="modal-title">Add Transaction</div>
+          <div className="modal-title">{editingId ? 'Edit Transaction' : 'Add Transaction'}</div>
 
           <div className="form-row">
             <div className="form-group">
@@ -176,15 +183,15 @@ export default function Transactions({ transactions, role, search, onAddTransact
               </select>
             </div>
             <div className="form-group">
-              <label className="form-label">Amount ($)</label>
-              <input type="number" className="form-input" placeholder="0.00" min="0" step="0.01"
+              <label className="form-label">Amount (₹)</label>
+              <input type="number" className="form-input" placeholder="0" min="0"
                 value={form.amount} onChange={e => setField('amount', e.target.value)} />
             </div>
           </div>
 
           <div className="form-group">
             <label className="form-label">Description</label>
-            <input type="text" className="form-input" placeholder="e.g. Grocery shopping"
+            <input type="text" className="form-input" placeholder="What was this for?"
               value={form.desc} onChange={e => setField('desc', e.target.value)} />
           </div>
 
@@ -202,7 +209,9 @@ export default function Transactions({ transactions, role, search, onAddTransact
             </div>
           </div>
 
-          <button className="btn-primary" onClick={handleSubmit}>Add Transaction</button>
+          <button className="btn-primary" onClick={handleSubmit}>
+            {editingId ? 'Update' : 'Add'} Transaction
+          </button>
           <button className="btn-cancel" onClick={closeModal}>Cancel</button>
         </div>
       </div>

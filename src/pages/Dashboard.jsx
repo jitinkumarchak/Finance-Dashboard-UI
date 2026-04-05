@@ -59,7 +59,7 @@ export default function Dashboard({ transactions, onNavigate }) {
         },
         scales: {
           x: { grid: GRID, ticks: TICKS },
-          y: { grid: GRID, ticks: { ...TICKS, callback: v => '$' + v.toLocaleString() } },
+          y: { grid: GRID, ticks: { ...TICKS, callback: v => '₹' + v.toLocaleString('en-IN') } },
         },
       },
     })

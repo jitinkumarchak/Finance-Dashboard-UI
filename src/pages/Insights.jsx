@@ -23,7 +23,7 @@ export default function Insights({ transactions }) {
   const barCanvasRef = useRef(null)
   const barChartRef  = useRef(null)
 
-  // ── Derived data ───────────────────────────────────────
+  // Calculating core stats
   const expenses  = useMemo(() => transactions.filter(t => t.type === 'expense'), [transactions])
   const incomes   = useMemo(() => transactions.filter(t => t.type === 'income'),  [transactions])
   const totalExp  = useMemo(() => expenses.reduce((s, t) => s + t.amount, 0), [expenses])
@@ -45,7 +45,7 @@ export default function Insights({ transactions }) {
   const topCatPct = totalExp > 0 ? (topCatAmt / totalExp * 100).toFixed(0) : 0
   const topColor  = topCat ? (CAT_COLORS[topCat] || CAT_COLORS['Other']).color : '#7cffc4'
 
-  // Last month savings
+  // Look at last month's data specifically
   const now  = new Date()
   const lmKey = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 7)
   const lmInc = transactions.filter(t => t.type === 'income'  && t.date.startsWith(lmKey)).reduce((s, t) => s + t.amount, 0)
@@ -56,7 +56,7 @@ export default function Insights({ transactions }) {
   const ratio = totalInc > 0 ? (totalExp / totalInc * 100).toFixed(1) : 0
   const ratioColor = ratio < 70 ? 'var(--accent)' : ratio < 90 ? 'var(--yellow)' : 'var(--red)'
 
-  // ── Bar chart ──────────────────────────────────────────
+  // Chart initialization
   useEffect(() => {
     if (!barCanvasRef.current) return
     if (barChartRef.current) barChartRef.current.destroy()
@@ -80,7 +80,7 @@ export default function Insights({ transactions }) {
         },
         scales: {
           x: { grid: GRID, ticks: TICKS },
-          y: { grid: GRID, ticks: { ...TICKS, callback: v => '$' + v.toLocaleString() } },
+          y: { grid: GRID, ticks: { ...TICKS, callback: v => '₹' + v.toLocaleString('en-IN') } },
         },
       },
     })
@@ -88,18 +88,20 @@ export default function Insights({ transactions }) {
     return () => { barChartRef.current?.destroy(); barChartRef.current = null }
   }, [transactions])
 
-  // ── Observations ───────────────────────────────────────
+  // Personalized insights
   const observations = useMemo(() => {
     const obs = []
-    if (lmSave > 0)  obs.push({ icon: '💰', text: `You saved ${fmt(lmSave)} last month — that's a ${lmRate}% savings rate.` })
-    if (topCat)      obs.push({ icon: '📊', text: `${topCat} is your biggest expense category at ${topCatPct}% of spending.` })
-    if (ratio > 90)  obs.push({ icon: '⚠️', text: 'Your expense ratio is high. Consider cutting discretionary spending.' })
-    else if (ratio < 60) obs.push({ icon: '✅', text: "Excellent! You're spending well below your income." })
+    if (lmSave > 0)  obs.push({ icon: '💰', text: `Great job! You saved ${fmt(lmSave)} last month, giving you a ${lmRate}% savings rate.` })
+    if (topCat)      obs.push({ icon: '📊', text: `Heads up: ${topCat} is your biggest expense right now, taking up ${topCatPct}% of your total spending.` })
+    if (ratio > 90)  obs.push({ icon: '⚠️', text: 'Your spending is getting close to your total income. It might be time to check your discretionary expenses.' })
+    else if (ratio < 60) obs.push({ icon: '✅', text: "You're doing excellent! Your spending is well below what you're earning." })
+    
     const housingAmt = bycat['Housing'] || 0
     if (housingAmt > 0 && totalExp > 0 && housingAmt / totalExp > 0.4)
-      obs.push({ icon: '🏠', text: `Housing takes up ${(housingAmt / totalExp * 100).toFixed(0)}% of expenses — above the recommended 30%.` })
+      obs.push({ icon: '🏠', text: `Housing costs are currently ${(housingAmt / totalExp * 100).toFixed(0)}% of your expenses, which is a bit high.` })
+    
     if (obs.length === 0)
-      obs.push({ icon: '📈', text: 'Keep adding transactions to see personalized observations.' })
+      obs.push({ icon: '📈', text: 'Start logging more transactions to get personalized financial insights.' })
     return obs
   }, [lmSave, lmRate, topCat, topCatPct, ratio, bycat, totalExp])
 

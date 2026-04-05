@@ -40,7 +40,7 @@ export default function App() {
     setTimeout(() => setToast(t => ({ ...t, visible: false })), 2800)
   }, [])
 
-  // ── CRUD ───────────────────────────────────────────────
+  // Database operations
   const addTransaction = useCallback((data) => {
     const newTx = { ...data, id: nextId }
     setNextId(n => n + 1)
@@ -48,12 +48,18 @@ export default function App() {
     showToast('Transaction added!')
   }, [transactions, nextId, showToast])
 
+  const editTransaction = useCallback((updatedTx) => {
+    const updatedList = transactions.map(t => t.id === updatedTx.id ? updatedTx : t)
+    persistTx(updatedList)
+    showToast('Transaction updated!')
+  }, [transactions, showToast])
+
   const deleteTransaction = useCallback((id) => {
     persistTx(transactions.filter(t => t.id !== id))
     showToast('Transaction deleted')
   }, [transactions, showToast])
 
-  // ── Export ─────────────────────────────────────────────
+  // CSV Export logic
   const exportData = useCallback(() => {
     const headers = ['ID', 'Description', 'Category', 'Type', 'Amount', 'Date']
     const rows = transactions.map(t => [t.id, t.desc, t.cat, t.type, t.amount, t.date])
@@ -64,7 +70,7 @@ export default function App() {
     showToast('Exported as CSV!')
   }, [transactions, showToast])
 
-  // ── Sidebar toggle (mobile) ────────────────────────────
+  // Sidebar toggle for mobile
   const toggleSidebar = () => {
     document.getElementById('sidebar')?.classList.toggle('open')
   }
@@ -73,7 +79,7 @@ export default function App() {
 
   return (
     <>
-      {/* Mobile sidebar toggle */}
+      {/* Mobile sidebar toggle button */}
       <div id="sidebarToggle" className="sidebar-toggle" onClick={toggleSidebar}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <line x1="3" y1="6" x2="21" y2="6" />
@@ -105,6 +111,7 @@ export default function App() {
               search={search}
               onNavigate={setActivePage}
               onAddTransaction={addTransaction}
+              onEditTransaction={editTransaction}
               onDeleteTransaction={deleteTransaction}
               showToast={showToast}
             />
