@@ -5,7 +5,7 @@ A personal finance tracking dashboard built with React + Vite. This project lets
 
 ## Live Demo / Repo
 
-- **GitHub**: [https://github.com/jitinkumarchak/Finance-Dashboard-UI](https://github.com/jitinkumarchak/Finance-Dashboard-UI)
+- **LIVE**: ([FINTRAK](https://fintrak-per81o6a5-jitin-kumar-chaks-projects.vercel.app/))
 
 ---
 
